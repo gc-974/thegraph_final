@@ -1,0 +1,490 @@
+---
+title: "FINAL PROJECT"  
+format: dashboard   
+theme: lux
+---
+
+```{python}
+#| include: false
+# Imports 
+import pandas as pd
+import plotly.express as px
+import itables 
+
+
+# Indicator 3: Tobacco use - Male 
+# Load data for males 
+smokem_o = pd.read_csv("data/sh_prv_smok_ma.csv")
+smokem_o
+# Filter data from raw dataset 
+
+smokem = smokem_o.query("name.isin(['Australia','India','Rwanda', 'Belgium', 'Brazil'])")
+
+# Transform dataframe from wide to long format and cleaning
+
+smokem = smokem.melt(id_vars=["geo", "name"], var_name="year",value_name="smoking").sort_values(["geo","year"])
+
+smoke_clean= smokem.dropna()
+smoke_clean=smoke_clean.rename(columns={"name":"country"})
+smoke_clean
+
+# Tobacco Female
+# Load data for females 
+smokef_o = pd.read_csv("data/sh_prv_smok_fe.csv")
+smokef_o
+# Filter data from raw dataset 
+
+smokef = smokef_o.query("name.isin(['Australia','India','Rwanda', 'Belgium', 'Brazil'])")
+
+# Transform dataframe from wide to long format and cleaning
+
+smokef = smokef.melt(id_vars=["geo", "name"], var_name="year",value_name="smoking_f").sort_values(["name","year"])
+
+smokef_clean= smokef.dropna()
+smokef_clean=smokef_clean.rename(columns={"name":"country"})
+smokef_clean
+smoke_clean
+
+# Merging the female and male datasets  - Tobacco 
+smokefm = pd.merge(smokef_clean, smoke_clean, on=["year", "country"], how="inner")
+smokefm
+smokefm= smokefm.drop(columns= ["geo_y", "geo_x"]).sort_values(["country","year"]) 
+smokefm
+smokefm.info()
+smokefm["year"] = smokefm["year"].astype(int)
+smokefm
+smokefm.info()
+
+# Descriptive stats 
+
+smoke_sum = (smokefm.
+    groupby("country").
+        agg(mean_case_m=("smoking","mean"), 
+        median_case_m=("smoking", "median"),
+        max_case_m=("smoking", "max"),
+        min_case_m=(("smoking", "min")), 
+        mean_case_f=("smoking_f","mean"), 
+        median_case_f=("smoking_f", "median"),
+        max_case_f=("smoking_f", "max"),
+        min_case_f=(("smoking_f", "min")),)
+    .reset_index()).round(2)
+
+itables.show(smoke_sum)
+
+# Creating a sex column 
+
+smoke_long = smokefm.melt(
+    id_vars=["year", "country"],
+    value_vars=[
+        "smoking",
+        "smoking_f"
+    ],
+    var_name="sex",
+    value_name="smoking_percentage"
+)
+smoke_long["sex"] = smoke_long["sex"].replace({
+    "smoking": "Male",
+    "smoking_f": "Female"
+})
+
+# Graph comparing both genders and countries 
+
+smoke_fig = px.line(smoke_long, 
+x="year", 
+y="smoking_percentage", 
+color="sex", 
+facet_col="country",
+facet_col_wrap=3,
+markers=True,
+height=500, width=1000, 
+color_discrete_sequence=["purple", "orange"], 
+title="Percentage of tobacco use by sex and country (2000-2022).")
+
+smoke_fig.update_layout(hovermode="x unified",
+xaxis_title="Year",
+yaxis_title="Current tobaco use",
+legend_title="Sex", 
+template="plotly_white")
+smoke_fig.update_xaxes(title_text=None)
+smoke_fig.add_annotation(
+    text="Year",
+    x=0.5,
+    y=-0.12,
+    xref="paper",
+    yref="paper",
+    showarrow=False,
+    font=dict(size=14)
+)
+
+smoke_fig.add_annotation(
+    text="Tobacco use",
+    x=-0.08,
+    y=0.5,
+    xref="paper",
+    yref="paper",
+    showarrow=False,
+    textangle=-90,
+    font=dict(size=14)
+)
+smoke_fig.update_layout(
+    margin=dict(l=90, r=30, t=90, b=90), autosize=True)
+smoke_fig
+
+#Value box 
+
+smoke_long_sum= (smokefm.
+    groupby("country").
+        agg(mean_use=("smoking","mean"))
+    .reset_index()).round(2)
+
+highest_tobacco_use= smoke_long_sum['mean_use'].max()
+
+highest_tobacco_use
+
+# Indicator 5: lung Cancer by Male 
+colo_male_o = pd.read_csv("data/lung_cancer_number_of_new_male_cases.csv")
+colo_male_o
+
+# Filter data from raw dataset 
+
+colomale = colo_male_o.query("name.isin(['Australia','India','Rwanda', 'Belgium', 'Brazil'])")
+
+colomale[colomale.isna().any(axis=1)]
+
+colomale
+
+# Transform dataframe from wide to long format 
+
+lungmale = colomale.melt(id_vars=["geo", "name"], var_name="year",value_name="lung_case_m").sort_values(["geo","year"])
+
+# Data cleaning
+lungmale.info()
+
+lungmale["year"] = lungmale["year"].astype(int)
+
+lungmale.info()
+
+lungmale = lungmale.rename(columns={"name":"country"})
+
+# Filter for 1950-2022
+lungmale20  = lungmale[(lungmale['year']>= 1950) & (lungmale['year'] <= 2022)].sort_values("year")
+lungmale20
+
+# Indicator 5: lung Cancer by Females 
+colo_female_o = pd.read_csv("data/lung_cancer_number_of_new_female_cases.csv")
+colo_female_o
+
+# Filter data from raw dataset 
+
+lungfemale = colo_female_o.query("name.isin(['Australia','India','Rwanda', 'Belgium', 'Brazil'])")
+
+lungfemale[lungfemale.isna().any(axis=1)]
+
+lungfemale
+
+# Transform dataframe from wide to long format 
+
+lungfemale = lungfemale.melt(id_vars=["geo", "name"], var_name="year",value_name="lung_case_f").sort_values(["geo","year"])
+
+# Data cleaning
+lungfemale.info()
+lungfemale["year"] = lungfemale["year"].astype(int)
+
+lungfemale.info()
+
+lungfemale = lungfemale.rename(columns={"name":"country"})
+
+# Filter for 1950-2022
+
+lungfemale20  = lungfemale[(lungfemale['year']>= 1950) & (lungfemale['year'] <= 2022)].sort_values("year")
+lungfemale20
+
+# Merging the female and male datasets -  cancer
+colomf = pd.merge(lungmale20, lungfemale20, on=["year", "country"], how="inner")
+colomf
+colomf= colomf.drop(columns= ["geo_y", "geo_x"]).sort_values(["country","year"]) 
+colomf
+px.line(colomf, x="year", y="lung_case_f", color="country")
+
+# Descriptive stats 
+
+lungf_sum = (colomf.
+    groupby("country").
+        agg(mean_case_m=("lung_case_m","mean"), 
+        median_case_m=("lung_case_m", "median"),
+        max_case_m=("lung_case_m", "max"),
+        min_case_m=(("lung_case_m", "min")), 
+        mean_case_f=("lung_case_f","mean"), 
+        median_case_f=("lung_case_f", "median"),
+        max_case_f=("lung_case_f", "max"),
+        min_case_f=(("lung_case_f", "min")))).round(2)
+
+print(lungf_sum)
+ 
+# Creating a sex column 
+
+lung_long = colomf.melt(
+    id_vars=["year", "country"],
+    value_vars=[
+        "lung_case_m",
+        "lung_case_f"
+    ],
+    var_name="sex",
+    value_name="lung_cancer_incidence"
+)
+lung_long["sex"] = lung_long["sex"].replace({
+    "lung_case_m": "Male",
+    "lung_case_f": "Female"
+})
+
+lung_long.sort_values(["country","year"])
+
+lung_long.info()
+
+print(lung_long)
+
+# Value boxes
+
+lung_long_sum = (lung_long.
+    groupby("country").
+        agg(mean_cancer=("lung_cancer_incidence","mean"), 
+        min_cancer=(("lung_cancer_incidence", "min")))).reset_index().round(1)
+
+
+highest_mean_cancer= lung_long_sum['mean_cancer'].max()
+highest_mean_cancer
+
+# Graph comparing both genders and countries 
+
+lung_fig = px.line(lung_long, 
+x="year", 
+y="lung_cancer_incidence", 
+color="sex", 
+facet_col="country",
+markers=True,
+facet_col_wrap=3,
+height=500, width=1000, 
+color_discrete_sequence=["purple", "orange", "blue", "magenta", "turquoise"],
+labels={"lung_case_f":"Female", "year":"Year", "country":"Country", "lung_cancer_incidence":"incidence count"}, 
+title="Number of lung cancer diagnoses by sex and country (1990-2022).")
+
+lung_fig.update_layout(hovermode="x unified", template="plotly_white",
+legend_title="Sex")
+lung_fig.update_xaxes(title_text=None)
+lung_fig.update_yaxes(title_text=None)
+lung_fig.update_xaxes(matches="x")
+lung_fig.update_yaxes(matches="y")
+lung_fig.add_annotation(
+    text="Year",
+    x=0.5,
+    y=-0.12,
+    xref="paper",
+    yref="paper",
+    showarrow=False,
+    font=dict(size=14)
+)
+
+lung_fig.add_annotation(
+    text="Lung cancer incidence",
+    x=-0.08,
+    y=0.5,
+    xref="paper",
+    yref="paper",
+    showarrow=False,
+    textangle=-90,
+    font=dict(size=14)
+)
+lung_fig.update_layout(
+    margin=dict(l=90, r=160, t=90, b=90), autosize=True)
+
+# Combination
+# Merging lung and smoking data and filtering out missing values from smoking dataset 
+
+lung_sm = pd.merge(lung_long, smoke_long, on=["year", "country", "sex"], how="inner").sort_values(["year", "country"])
+
+# Graph
+
+fig_2= px.scatter(lung_sm,
+y="lung_cancer_incidence",
+x="smoking_percentage",
+color="sex",  
+facet_col="country",
+facet_col_wrap=5,
+height=500, width=1000, 
+opacity=0.35,
+animation_frame="year",
+color_discrete_sequence=["magenta", "turquoise"],
+labels={"year":"Year", "country":"Country", "lung_cancer_incidence":"Incidence count"}, 
+title="Lung cancer diagnoses vs tobacco use by sex and country (2000-2022).")
+
+fig_2.update_xaxes(title_text=None)
+
+fig_2.update_layout(template="plotly_white", 
+hovermode="x unified",
+yaxis_title="Lung Cancer Incidence",
+xaxis_title="Smoking percentage",
+legend_title="Sex",
+autosize=True)
+
+fig_2.add_annotation(
+    text="Tobacco use",
+    x=0.5,
+    y=-0.12,
+    xref="paper",
+    yref="paper",
+    showarrow=False,
+    font=dict(size=14)
+)
+
+fig_2.add_annotation(
+    text="Lung cancer incidence",
+    x=-0.08,
+    y=0.5,
+    xref="paper",
+    yref="paper",
+    showarrow=False,
+    textangle=-90,
+    font=dict(size=14)
+)
+fig_2.update_xaxes(title_text=None)
+fig_2.update_layout(margin=dict(l=90, r=30, t=90, b=90), autosize=True)
+
+highlight = px.scatter(
+    lung_sm,
+    x="smoking_percentage",
+    y="lung_cancer_incidence",
+    color="sex",
+    facet_col="country",
+    animation_frame="year",
+    size_max=10
+)
+
+fig_2.add_traces(highlight.data)
+fig_2.frames = highlight.frames
+
+fig_2
+```
+
+
+# WELCOME PAGE
+
+## Row 1 {height=60%}
+
+For this final project, we will visualise data for different indicators over time within five different countries of the world (Australia, India, Brazil, Belgium, Rwanda). 
+
+The fist indicator is lung cancer new diagnoses. In the gapminder dataset, lung cancer is defined as the total number of new female and male cases of lung cancer during the certain year. 
+
+The second indicator is the percentage current tobacco use female and males defined in the gapminder dataset, as the percentage of the female and males population ages 15 years and older who currently use any tobacco product (smoked/andor smokeless tobacco) on a daily or non-daily basis. Tobacco products include cigarettes pipes, bidis, krater, heated tobacco products and all forms of smokeless tobacco but exclude e-cigarettes. Rates are age-standardized to the WHO Standard Population. 
+
+
+We then look at the relationship between tobacco use and lung cancer incidence among adults for the respective countries. 
+
+N.B: One limitation of the following data presentation is nature of interpretation which is based on purely descriptive and visual representation of the gapminder datasets and is therefore supported by any statistical test. Another limitation is that not all data was available for the researched timeframe, so the dataframe was automatically restricted for certain part of the visualisation. 
+
+## Row 2 {height=30%}
+
+
+::: {.valuebox icon="clipboard2-pulse" color="primary" title="Highest Cancer incidence"}
+
+`{python} str(highest_mean_cancer)`
+
+
+:::
+
+::: {.valuebox icon="lungs" color="#FFA500" title="Highest Tobacco Use Percentage"} 
+
+`{python} str(highest_tobacco_use)`
+
+
+:::
+## Row 3 {height=10%}
+
+More details can be found on the data in the "Data Download" page and the about pages. 
+
+# Lung Cancer
+
+## Row 1 {height=40%}
+### Column {width=25%}
+There is a general increase of lung cancer over time for both India and Brazil for both sex while other countries slightly increase but incidence is stable over time. India has the highest incidence and Rwanda has the lowest. 
+
+### {width=60%}
+```{python}
+itables.show(lungf_sum)
+```
+
+## Row 2 {height=60%}
+
+```{python}
+lung_fig.show()
+```
+
+
+# TOBACCO USE
+
+## Row 1 {height=40%}
+
+### {width=40%}
+There is a general decrease of tobacco use across all countries, although there is a higher tobacco use among males compared to females regardless of the country.The highest tobacco use percentage point is for Indian Males in 2000, and the lowest point is for Rwandan females in 2022. 
+
+### {width=60%}
+```{python}
+itables.show(smoke_sum)
+```
+
+## Row 2 {height=60%}
+
+```{python}
+smoke_fig.show()
+```
+
+
+
+
+# COMBINATION
+
+## Row 1 {height=20%}
+
+## Row 2 {height=70%}
+
+```{python}
+fig_2
+```
+
+## Row 2 {height=10%}
+
+Cancer incidence seems to decrease as smoking percentage decreases. This is especially outstanding for India. Overall, there is a higher percentage of male smoking compared to females in all countries. 
+
+# DATA DOWNLOAD
+
+## Row {height=50%}
+### Column {width=50%}
+Tobacco Males
+```{python}
+# Display full dataset with itables 
+itables.show(smokem_o, caption="Gapminder Dataset (Tobacco Males", buttons=["csvHtml5"])
+```
+
+### Column {width=50%}
+Tobacco Females 
+```{python}
+itables.show(smokef_o, caption="Gapminder Dataset (Tobacco Females)", buttons=["csvHtml5"])
+```
+
+## Row {height=50%}
+### Column {width=50%}
+Lung Cancer Females
+```{python}
+itables.show(colo_female_o, caption="Gapminder Dataset (Lung Cancer Females)", buttons=["csvHtml5"])
+```
+
+### Column {width=50%}
+Lung Cancer Males 
+```{python}
+itables.show(colo_male_o, caption="Gapminder Dataset (Lung Cancer Males)", buttons=["csvHtml5"])
+```
+
+# ABOUT 
+
+This data comes from the python `plotly.express` library’s `gapminder` dataset, which is originally sourced from the Gapminder Foundation.
+
+The Gapminder Foundation is a non-profit venture that promotes sustainable global development and achievement of the United Nations Millennium Development Goals by increasing use and understanding of statistics and other information about social, economic, and environmental development.
